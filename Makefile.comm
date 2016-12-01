@@ -10,7 +10,6 @@ JAVACFLAGS = \
 	-classpath gen -d gen -source 1.7 -target 1.7
 
 PROJDIR = ${subst .,/,${PROJ}}
-OBJS = gen/${PROJDIR}/main.class
 R = gen/${PROJDIR}/R.java
 
 all: gen ${PROJ}.apk
