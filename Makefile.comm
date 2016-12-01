@@ -1,0 +1,47 @@
+# https://stackoverflow.com/documentation/android/85/getting-started-with-android/9496/android-programming-without-an-ide#t=201612010747114460775
+ANDROID_SDK = ~/Android/Sdk
+ANDROID_JAR = ${ANDROID_SDK}/platforms/android-21/android.jar
+ANDROID_BUILD_TOOLS = ${ANDROID_SDK}/build-tools/21.1.2
+
+JAVA = java
+JAVAC = javac
+JAVACFLAGS = \
+	-bootclasspath ${ANDROID_JAR} \
+	-classpath gen -d gen -source 1.7 -target 1.7
+
+PROJDIR = ${subst .,/,${PROJ}}
+OBJS = gen/${PROJDIR}/main.class
+R = gen/${PROJDIR}/R.java
+
+all: gen ${PROJ}.apk
+
+.SUFFIXES: .java .class
+
+gen/%.class: src/%.java ${R}
+	${JAVAC} ${JAVACFLAGS} $<
+
+gen/classes.jayce: ${R} ${OBJS}
+	${JAVA} -jar ${ANDROID_BUILD_TOOLS}/jill.jar --output $@ gen
+
+gen/classes.dex: gen/classes.jayce
+	${JAVA} -jar ${ANDROID_BUILD_TOOLS}/jack.jar --import $< --output-dex gen
+
+gen/${PROJ}.apkPart ${R}: ${RES} ${MANIFEST}
+	aapt package -f -I ${ANDROID_JAR} \
+	-J gen -F gen/${PROJ}.apkPart -m \
+	-M ${MANIFEST} -S res -v
+
+gen/${PROJ}.Unalign: gen/classes.dex gen/${PROJ}.apkPart
+	${JAVA} -classpath ${ANDROID_SDK}/tools/lib/sdklib.jar \
+	com.android.sdklib.build.ApkBuilderMain \
+	$@ \
+	-d -f gen/classes.dex -v -z gen/${PROJ}.apkPart
+
+${PROJ}.apk: gen/${PROJ}.Unalign
+	zipalign -f -v 4 $< $@
+
+gen:
+	mkdir gen
+
+clean:
+	rm -rf ${PROJ}.apk gen
