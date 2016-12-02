@@ -1,6 +1,9 @@
 PROJ = org.example
-RES = res/values/values.xml
 MANIFEST = AndroidManifest.xml
-OBJS = gen/${PROJDIR}/main.class
+
+RES = $(shell find res -type f)
+AIDLS = $(shell find src -type f -name '*.aidl')
+SRCS = $(shell find src -type f -name '*.java')
+JAVALIBS = $(shell find lib -type f -name '*.jar' | tr '\n' ':')
 
 include Makefile.comm

@@ -1,32 +1,43 @@
 # https://stackoverflow.com/documentation/android/85/getting-started-with-android/9496/android-programming-without-an-ide#t=201612010747114460775
-ANDROID_SDK = ~/Android/Sdk
-ANDROID_JAR = ${ANDROID_SDK}/platforms/android-21/android.jar
+ANDROID_SDK = ${HOME}/Android/Sdk
+ANDROID_PLATFORM = ${ANDROID_SDK}/platforms/android-21
 ANDROID_BUILD_TOOLS = ${ANDROID_SDK}/build-tools/21.1.2
 
 JAVA = java
 JAVAC = javac
 JAVACFLAGS = \
-	-bootclasspath ${ANDROID_JAR} \
-	-classpath gen -d gen -source 1.7 -target 1.7
+	-bootclasspath ${ANDROID_PLATFORM}/android.jar \
+	-classpath gen:src:${JAVALIBS} -source 1.7 -target 1.7
 
 PROJDIR = ${subst .,/,${PROJ}}
 R = gen/${PROJDIR}/R.java
+GEN_SRCS = $(subst src,gen,$(patsubst %.aidl,%.java,${AIDLS}))
 
-all: gen ${PROJ}.apk
+OBJS = \
+$(patsubst %.java,%.class,${GEN_SRCS}) \
+$(patsubst %.java,%.class,${SRCS})
 
-.SUFFIXES: .java .class
 
-gen/%.class: src/%.java ${R}
+all: ${R} ${GEN_SRCS} ${PROJ}.apk
+
+.SUFFIXES: .java .class .aidl
+
+gen/%.java: src/%.aidl
+	mkdir -p gen
+	aidl -Isrc -p${ANDROID_PLATFORM}/framework.aidl -ogen $<
+
+%.class: %.java
 	${JAVAC} ${JAVACFLAGS} $<
 
 gen/classes.jayce: ${R} ${OBJS}
-	${JAVA} -jar ${ANDROID_BUILD_TOOLS}/jill.jar --output $@ gen
+	${JAVA} -jar ${ANDROID_BUILD_TOOLS}/jill.jar --output $@ src
 
 gen/classes.dex: gen/classes.jayce
 	${JAVA} -jar ${ANDROID_BUILD_TOOLS}/jack.jar --import $< --output-dex gen
 
 gen/${PROJ}.apkPart ${R}: ${RES} ${MANIFEST}
-	aapt package -f -I ${ANDROID_JAR} \
+	mkdir -p gen
+	aapt package -f -I ${ANDROID_PLATFORM}/android.jar \
 	-J gen -F gen/${PROJ}.apkPart -m \
 	-M ${MANIFEST} -S res -v
 
@@ -39,8 +50,6 @@ gen/${PROJ}.Unalign: gen/classes.dex gen/${PROJ}.apkPart
 ${PROJ}.apk: gen/${PROJ}.Unalign
 	zipalign -f -v 4 $< $@
 
-gen:
-	mkdir gen
-
 clean:
-	rm -rf ${PROJ}.apk gen
+	find src -type f -name '*.class' -print0 | xargs -0 -- rm -f
+	rm -rf ${PROJ}.apk gen src/classes.jayce src/classes.dex src/${PROJ}.apkPart src/${PROJ}.Unalign
